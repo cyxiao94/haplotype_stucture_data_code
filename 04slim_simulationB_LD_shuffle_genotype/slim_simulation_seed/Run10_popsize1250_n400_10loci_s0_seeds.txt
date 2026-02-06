@@ -1,0 +1,15 @@
+Run10	Popsize1250	n400	10loci	s0	p1	Rep1	922938610
+Run10	Popsize1250	n400	10loci	s0	p1	Rep2	1647925372
+Run10	Popsize1250	n400	10loci	s0	p1	Rep3	1016449471
+Run10	Popsize1250	n400	10loci	s0	p1	Rep4	141886786
+Run10	Popsize1250	n400	10loci	s0	p1	Rep5	86615575
+Run10	Popsize1250	n400	10loci	s0	p2	Rep1	1874676649
+Run10	Popsize1250	n400	10loci	s0	p2	Rep2	969436375
+Run10	Popsize1250	n400	10loci	s0	p2	Rep3	331026697
+Run10	Popsize1250	n400	10loci	s0	p2	Rep4	361580337
+Run10	Popsize1250	n400	10loci	s0	p2	Rep5	52347079
+Run10	Popsize1250	n400	10loci	s0	p3	Rep1	1470607028
+Run10	Popsize1250	n400	10loci	s0	p3	Rep2	1935241866
+Run10	Popsize1250	n400	10loci	s0	p3	Rep3	1063871021
+Run10	Popsize1250	n400	10loci	s0	p3	Rep4	1946759885
+Run10	Popsize1250	n400	10loci	s0	p3	Rep5	533657

@@ -1,0 +1,59 @@
+
+
+
+initialize() {
+	
+	//defineConstant("L",23000001+21100001+24500001+27900001);
+	defineConstant("L", 23000001);
+	//defineConstant("L",332951);
+	defineConstant("size_subppop", 400);
+	if (exists("slimgui")){
+		defineConstant("input","test_vcf");
+	}
+	initializeSex("A"); //sexual reproduction
+	initializeMutationRate(0); //mutation rate set to 0
+	initializeMutationType("m1",0.5,"f",0.00); //neutral
+	m1.convertToSubstitution = F;
+	initializeGenomicElementType("g1", m1, 1);
+	initializeGenomicElement(g1, 0, L);
+	
+	// read Drosophila 2L map from Comeron et al. 2012
+	map = readCSV("Dmel_newpos.rec", c("ends", "rates"), sep="\t");
+	ends = map.getValue("ends");
+	ends = c(ends[1:(size(ends)-1)] - 2, L);
+	rates = map.getValue("rates") * 1e-8;
+	initializeRecombinationRate(rates, ends);
+	//initializeRecombinationRate(1e-8);
+}
+
+1 late() {
+	sim.addSubpop("p1", size_subppop);
+	p1.haplosomes.readHaplosomesFromVCF(vcffile, m1);
+	p1.setSubpopulationSize(popsize);
+	for (mut in sim.mutations){
+		if (mut.selectionCoeff>0){
+			new_selectionCoeff = asFloat(strength)/asFloat(num_target);
+			mut.setSelectionCoeff(new_selectionCoeff);
+		}
+	}
+}
+
+
+
+1:81 late() {
+	if (sim.cycle %10 ==1){
+		inds = p1.sampleIndividuals(600);
+		genomes = inds.haplosomes;
+		muts = sim.mutations;
+		nGenomes = size(genomes);
+		//freqs = sapply(muts, "sum(genomes.containsMutations(applyValue))/ nGenomes");
+		for (mut in muts){
+			nReads = asInteger(rnorm(1,100,5));//approximate coverage with an average coverage of 100
+			freq=sum(sample(genomes, nReads).containsMutations(mut))/nReads;
+			catn((sim.cycle-1) + "\t" + mut.position + "\t" + freq);
+		}
+	}
+}
+
+
+

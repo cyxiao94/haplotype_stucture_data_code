@@ -1,0 +1,16 @@
+Ne	group	rep1	rep2	treatment
+1387	A	r1	r1	Run6_popsize1250_n400_10loci_s0
+1358	A	r2	r2	Run6_popsize1250_n400_10loci_s0
+1402	A	r3	r3	Run6_popsize1250_n400_10loci_s0
+1375	A	r4	r4	Run6_popsize1250_n400_10loci_s0
+1405	A	r5	r5	Run6_popsize1250_n400_10loci_s0
+1370	B	r1	r6	Run6_popsize1250_n400_10loci_s0
+1392	B	r2	r7	Run6_popsize1250_n400_10loci_s0
+1371	B	r3	r8	Run6_popsize1250_n400_10loci_s0
+1403	B	r4	r9	Run6_popsize1250_n400_10loci_s0
+1382	B	r5	r10	Run6_popsize1250_n400_10loci_s0
+1431	C	r1	r11	Run6_popsize1250_n400_10loci_s0
+1369	C	r2	r12	Run6_popsize1250_n400_10loci_s0
+1386	C	r3	r13	Run6_popsize1250_n400_10loci_s0
+1351	C	r4	r14	Run6_popsize1250_n400_10loci_s0
+1394	C	r5	r15	Run6_popsize1250_n400_10loci_s0

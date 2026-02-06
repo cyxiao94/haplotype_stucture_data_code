@@ -1,0 +1,7 @@
+nohup: ignoring input
+There were 50 or more warnings (use warnings() to see the first 50)
+There were 50 or more warnings (use warnings() to see the first 50)
+There were 50 or more warnings (use warnings() to see the first 50)
+Warning message:
+In rm(samples, treatment, splits, generations, replicates, supergroup,  :
+  object 'trat_gen' not found

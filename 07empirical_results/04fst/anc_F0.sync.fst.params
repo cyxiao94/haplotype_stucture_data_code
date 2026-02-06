@@ -1,0 +1,13 @@
+Using input	empirical/anc_F0.sync
+Using output	empirical/anc_F0.sync.fst
+Using min-count	2
+Using min-coverage	4
+Using max-coverage	1002
+Using min-covered-fraction	0
+Using pool-size	600
+Using window-size	1000
+Using step-size	1000
+Using asympt-unbiased	0
+Using suppress na	0
+Using test	0
+Using help	0

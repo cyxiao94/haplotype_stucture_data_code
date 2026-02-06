@@ -1,0 +1,638 @@
+---
+title: "Compare-Correlation"
+author: "Changyi"
+date: "2023-02-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(data.table)
+library(ggplot2)
+library(ggsignif)
+library(corrplot)
+library(factoextra)
+library(ggpubr)
+library(VennDiagram)
+```
+#Experimental Evolution
+##Figure1.experimental_evolution
+'1A experimental design'
+'1B PCA under fluctuating environment'
+'1C AFC corrlation matrix'
+### 1B PCA
+```{r}
+#load PCA values
+pca.value<-readRDS('../07empirical_results/02pca/2818.pca.res.rds')
+information <- rownames(pca.value)
+pca.value <- as.data.table(pca.value)
+pca.value[, information := information]
+pca.value[, c("Species","Population","Treatment","Generation","Replicate") := tstrsplit(information, "_")]
+#matching replicate with supergroup
+map=c(r1 = "Supergroup I", r2 = "Supergroup I", r3 = "Supergroup I", r4 = "Supergroup I", r5 = "Supergroup I",
+      r6 = "Supergroup II", r7 = "Supergroup II", r8 = "Supergroup II", r9 = "Supergroup II", r10 = "Supergroup II",
+      r11 = "Supergroup III", r12 = "Supergroup III", r13 = "Supergroup III", r14 = "Supergroup III", r15 = "Supergroup III")
+pca.value[, Supergroup := as.factor(map[as.character(Replicate)])]
+
+
+#load PCA variance matrix
+pca.var<-readRDS('../07empirical_results/02pca/2818.pca.var.rds')
+
+
+#col_fluc<-colorRampPalette(colors = c("#833C0C","#FBC21A"))
+col_fluc<-colorRampPalette(colors = c("#E87671","#FBE992","#86C082"))
+
+p1<-ggplot(pca.value, aes(x=PC1, y=PC2, color=Generation, shape=Supergroup))+
+  geom_point(cex=2)+
+  scale_color_manual(values = c("black",col_fluc(8)))+
+  xlab(paste("PC1(",round(pca.var[1], 2),"%)",sep=""))+
+  ylab(paste("PC2(",round(pca.var[2], 2),"%)",sep=""))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        legend.title=element_text(size=15))#, legend.key.size = unit(1,"cm"))
+plot(p1)
+ 
+ggsave("Figures_manuscript/Figure1B_PCA_fluc_PC12.pdf", plot=p1, width=6, height = 5)
+
+
+```
+
+### 1C AFC correlation matrix
+```{r}
+cor_afc <- fread('../07empirical_results/03AFC_cor/2818_AFC_cor.txt.gz', header = TRUE)
+#retain F80 for visualisation
+cor_afc <- cor_afc[gen==80,]
+#simplify names
+cor_afc[, rep1 := {
+  parts <- tstrsplit(sample1, "_")
+  rep <- sub("r","",parts[[5]])
+  paste0("fluctuating",rep)
+}]
+cor_afc[, rep2 := {
+  parts <- tstrsplit(sample2, "_")
+  rep <- sub("r","",parts[[5]])
+  
+  paste0("fluctuating",rep)
+}]
+
+samples <- paste0("fluctuating",1:15)
+#transform into a matrix
+afc_cor_mat <- matrix(NA, nrow = length(samples), ncol = length(samples), dimnames = list(samples, samples))
+#fill data
+afc_cor_mat[cbind(cor_afc$rep1,cor_afc$rep2)] <- cor_afc$r    
+afc_cor_mat[cbind(cor_afc$rep2,cor_afc$rep1)] <- cor_afc$r    
+
+
+cor_col=colorRampPalette(c("#86C082", "#FBE992", "#F7D28A", "#F2BA83", "#EDA37D", "#EB8C77", "#E87671"))
+
+group <- rep(c("Supergroup I", "Supergroup II","Supergroup III"), each = ncol(afc_cor_mat)/3)
+n <- ncol(afc_cor_mat)
+y_offset <- n + 0.7  # Position above the plot
+
+#visualisation
+pdf("Figures_manuscript/Figure1C_AFC_correlation.pdf", width = 8, height = 8)
+corrplot(afc_cor_mat, is.corr = FALSE,diag = FALSE, method = 'color',  col = cor_col(120), mar = c(1,2,1,1), tl.col = 'darkred') 
+corrplot(afc_cor_mat, add = TRUE, is.corr = FALSE, diag = FALSE, method = 'number',  col = 'black', bg=NULL, cl.pos = 'n', number.cex = 0.7, number.digits = 3, tl.pos = 'n') |> corrRect(c(1,6,11,15))
+text(x = c(3,8,13),y = 15+3.7,xpd = TRUE, font = 2,
+     labels = c("Supergroup I", "Supergroup II", "Supergroup III")) #group information in columns
+text(x = 0 - 2.8, y = c(3,8,13), xpd = TRUE, font = 2, srt=90,
+     labels = c("Supergroup III", "Supergroup II", "Supergroup I")) #group information in rows
+
+rect(-3.2, 10.5, 0.5, 15.5, xpd=TRUE) #rect for Supergroup I in rows
+rect(-3.2, 5.5, 0.5, 10.5, xpd=TRUE) #rect for Supergroup II in rows
+rect(-3.2, 0.5, 0.5, 5.5, xpd=TRUE) #rect for Supergroup III in rows
+rect(0.5, 15.5, 5.5, 19.0, xpd=TRUE) #rect for Supergroup I in columns
+rect(5.5, 15.5, 10.5, 19.0, xpd=TRUE) #rect for Supergroup II in columns
+rect(10.5, 15.5, 15.5, 19.0, xpd=TRUE) #rect for Supergroup III in columns
+dev.off()
+
+
+```
+
+
+
+##Figure5. fluctuating and constant
+'PCA of genomic response from two environments(fluctuating and constant)'
+```{r}
+pca.res <- as.data.table(readRDS('../07empirical_results/02pca/2818_23.pca.res.rds'), keep.rownames = "sample")
+pca.var <- readRDS('../07empirical_results/02pca/2818_23.pca.var.rds')
+#colnames(pca.res) <- c("PC1","PC2","PC3","PC4","Supergroup","Population","Replicate","Generation")
+pca.res[, c("Species","Population","Treatment","Generation","Replicate") := tstrsplit(sample, "_")]
+#replace tags
+pca.res$Treatment <- gsub("anc", "Ancestral", pca.res$Treatment)
+pca.res$Treatment <- gsub("28-18", "Fluctuating", pca.res$Treatment)
+pca.res$Treatment <- gsub("23", "Constant", pca.res$Treatment)
+
+pca.res[, Supergroup := ifelse(Replicate %in% paste0("r",1:5), "SupergroupI",
+                               ifelse(Replicate %in% paste0("r",6:10), "SupergroupII","SupergroupIII"))]
+
+
+pca.res$Treatment_Generation=paste0(pca.res$Treatment,"_",pca.res$Generation)
+
+
+
+
+col_cons<-colorRampPalette(colors = c("#203764","#5AB6EA"))
+col_fluc<-colorRampPalette(colors = c("#833C0C","#FBC21A"))
+#col1<-c("#6e326e",col_cons(8), col_fluc(8)) #anc, cons, fluc 
+col1<-c("black",col_cons(8), col_fluc(8)) #anc, cons, fluc 
+
+p_pca12<-ggplot(pca.res,aes(x=PC1,y=PC2, col=Treatment_Generation, shape=Supergroup))+
+  geom_point()+
+  annotate("text",x=1000,y=-200, label="supergroup I", color="darkred")+
+  annotate("text",x=0,y=-500, label="supergroup II", color="darkred")+
+  annotate("text",x=0,y=750, label="supergroup III", color="darkred")+
+  scale_color_manual(values = col1)+
+  guides(shape = "none")+
+  xlab(paste("PC1(",round(pca.var[1], 2),"%)",sep=""))+
+  ylab(paste("PC2(",round(pca.var[2], 2),"%)",sep=""))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        legend.title=element_text(size=15))
+  
+plot(p_pca12)
+ggsave("Figures_manuscript/Figure5_fluc_cons_PCA12.pdf", plot=p_pca12, width = 8, height = 6)
+
+
+p_pca34<-ggplot(pca.res,aes(x=PC3,y=PC4, col=Treatment_Generation, shape=Supergroup))+
+  geom_point()+
+  scale_color_manual(values = col1)+
+  xlab(paste("PC1(",round(pca.var[3], 2),"%)",sep=""))+
+  ylab(paste("PC2(",round(pca.var[4], 2),"%)",sep=""))+
+  guides(shape = "none")+
+  theme(panel.background = element_rect(fill="white",colour = "black"),
+        panel.grid = element_blank())
+plot(p_pca34)
+
+rm(p_pca12, p_pca34)
+```
+
+
+##FigureS1. characterization of the ancestral population
+
+###S1A Venn Diagram
+```{r}
+af<-fread('../07empirical_results/00data/biallelic.max15.min85.SA.hfluc_hcons.F0-F80.flt.af.txt.gz', select = 1:19)
+colnames(af)<-c("CHR","POS","REF","ALT",paste0("F0.R",1:15,".freq"))
+
+#supergroup1
+af_group1 <- af[, c(1:4,5:9)]
+filt_af<-af_group1[!apply(af_group1[,5:9], 1, function(x) all(x==0) | all(x==1)),]
+site_group1<-paste(filt_af[[1]], filt_af[[2]], sep=".")
+
+
+#supergroup2
+af_group2 <- af[, c(1:4,10:14)]
+filt_af<-af_group2[!apply(af_group2[,5:9], 1, function(x) all(x==0) | all(x==1)),]
+site_group2<-paste(filt_af[[1]], filt_af[[2]], sep=".")
+
+#supergroup3
+af_group3 <- af[, c(1:4,15:19)]
+filt_af<-af_group3[!apply(af_group3[,5:9], 1, function(x) all(x==0) | all(x==1)),]
+site_group3<-paste(filt_af[[1]], filt_af[[2]], sep=".")
+
+venn_list=list(supergroupI=site_group1,
+            supergroupII=site_group2,
+            supergroupIII=site_group3)
+
+venn.diagram(x=venn_list,
+             filename = "Figures_manuscript/FigureS1A_vennplot.png",
+             output=TRUE,
+             imagetype = "png", disable.logging = TRUE)
+rm(af, filt_af, af_group1, af_group2, af_group3, site_group1, site_group2, site_group3)
+rm(venn_list)
+```
+###S1B Fst
+```{r}
+dt <- fread("../07empirical_results/04fst/anc_F0.sync.fst.gz")
+dt_general <- dt[, 1:5]
+colnames(dt_general) <- c("chr", "window_pos", "num_snp", "frac_snp", "average_cov")
+temp_dt_fst <- dt[, 6:110]
+new_dt_fst <- temp_dt_fst[, lapply(.SD, function(x)
+  tstrsplit(x, "=", type.convert = TRUE)[[2]])]
+setnames(new_dt_fst, sapply(temp_dt_fst[1], function(x)
+  tstrsplit(x, "=")[[1]]))
+
+dt_fst <- cbind(dt_general, new_dt_fst)
+
+#average across the genome
+col_mean_fst <- dt_fst[, lapply(.SD, mean, na.rm = TRUE), .SDcols = 6:110]
+col_median_fst <- dt_fst[, lapply(.SD, median, na.rm = TRUE), .SDcols = 6:110]
+dt_ave_fst <- data.table(
+  mean_fst = as.numeric(col_mean_fst),
+  median_fst = as.numeric(col_median_fst),
+  pair = names(col_mean_fst)
+)
+dt_ave_fst[, c("rep1", "rep2") := tstrsplit(pair, ":", fixed = TRUE)]
+
+get_group <- function(id) {
+  id <- as.integer(id)
+  if (id >= 1 && id <= 5) return("A")
+  if (id >= 6 && id <= 10) return("B")
+  if (id >= 11 && id <= 15) return("C")
+  else return(NA_character_)
+}
+
+dt_ave_fst[, group := mapply(function(r1, r2) {
+  g1 <- get_group(r1)
+  g2 <- get_group(r2)
+  if (g1 == g2) g1 else paste0(sort(c(g1, g2)), collapse = "")
+}, rep1, rep2)]
+
+dt_ave_fst[, comparison := ifelse(nchar(group) == 1, "within", "between")]
+
+
+#plot box plot
+p_fst <- ggplot(dt_ave_fst, aes(x = comparison, y = mean_fst)) +
+  geom_boxplot() +
+  geom_signif( comparisons = list(c("between", "within")), test = "wilcox.test", map_signif_level = TRUE) +
+  annotate("text", x = 0.5, y = 0.0027, label = "Wilcox test\nP-value=0.0002046", color = "black", size = 4, hjust=0) +
+  labs(x = "Comparison", y = "Mean Fst") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = c(0.95, 0.85))
+ggsave("Figures_manuscript/FigureS1B_Fst.pdf", plot = p_fst, width = 5, height = 5)
+
+
+#wilcox.test(dt_ave_fst[comparison=="between", mean_fst],
+            dt_ave_fst[comparison=="within", mean_fst])
+#p-value=0.0002046
+
+#wilcox.test(dt_ave_fst[comparison=="between", median_fst],
+#            dt_ave_fst[comparison=="within", median_fst])
+#p-value=0.000385
+
+rm(dt, dt_fst, new_dt_fst, ft_general,dt_ave_fst, p_fst, temp_dt_fst)
+```
+
+---------------------------------------------------------------------------------
+#Simulation A_random sampling
+##Figure2.random sampling
+'2A simulation strategy'
+'2B PCA plot under neutrality'
+'2C AFC correlation under neutrality'
+'2D AFC correlation with selection under LD'
+'2E AFC correlation with selection under LE'
+
+###2B PCA under neutrality
+```{r}
+pca.res=readRDS(paste0('../02slim_simulationA_LD_sampling/02pca/pca_result/Run1_popsize1250_n400_10loci_s0.pca.res.rds'))
+pca.var=readRDS(paste0('../02slim_simulationA_LD_sampling/02pca/pca_result/Run1_popsize1250_n400_10loci_s0.pca.var.rds'))
+samples=rownames(pca.res)
+splits<-unlist(strsplit(samples,'_'))
+Generations=as.factor(splits[grep("F",splits)])
+replicates=as.factor(splits[grep("Rep",splits)])
+groups=as.factor(splits[grep("^p",splits)])
+map_supegroup=c(p1="I",p2="II",p3="III")
+Supergroup=map_supegroup[groups]
+rep_gen=as.factor(paste(replicates, Generations,sep="_"))
+#plot_pop_gen
+col_evo=colorRampPalette(c("#E7726F","#FBEC92","#79BC81"))(8)
+p_drift<-ggplot(as.data.frame(pca.res), aes(x=PC1, y=PC2, col=Generations, shape=Supergroup))+
+  geom_point()+
+  xlim(-750,1000)+
+  scale_color_manual(values = c("black",col_evo))+
+  labs(x=paste("PC1(",round(pca.var[1],2),"%)",sep=""),
+        y=paste("PC2(",round(pca.var[2],2),"%)",sep=""))+
+  labs(title="LD_drift")+
+  theme_bw()+
+  theme(legend.position = c(0.85,0.34),
+        legend.key.size = unit(0.1, "cm"),
+        legend.title = element_text(size=6),
+        legend.text = element_text(size=5),
+        legend.spacing = unit(-0.05,"cm"))
+ggsave("Figures_manuscript/Figure2B_PCA_LD_drift_simulationA.pdf",plot=p_drift, width = 3, height = 3)
+```
+
+###2C AFC correlation under neutrality
+```{r}
+dt_afc_LD <- fread("../02slim_simulationA_LD_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_10loci_s0_cor.txt.gz")
+colnames(dt_afc_LD) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD[, Generation := factor(Generation)]
+p_drift <- ggplot(dt_afc_LD, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+
+  ggtitle("LD_drift")+
+  theme_bw()+
+  theme(legend.position = "none")
+plot(p_drift)
+ggsave("Figures_manuscript/Figure2C_AFC_correlation_LD_drift_simulationA.pdf", plot=p_drift, width = 3, height = 3)
+```
+###2D AFC correlation with selection under LD
+```{r}
+dt_afc_LD_t100_s10 <- fread("../02slim_simulationA_LD_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_100loci_s10_cor.txt.gz")
+colnames(dt_afc_LD_t100_s10) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD_t100_s10[, Generation := factor(Generation)]
+
+dt_afc_LD_t1000_s50 <- fread("../02slim_simulationA_LD_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_1000loci_s50_cor.txt.gz")
+colnames(dt_afc_LD_t1000_s50) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD_t1000_s50[, Generation := factor(Generation)]
+
+dt_afc_LD_t5000_s100 <- fread("../02slim_simulationA_LD_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_5000loci_s100_cor.txt.gz")
+colnames(dt_afc_LD_t5000_s100) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD_t5000_s100[, Generation := factor(Generation)]
+
+
+
+#color and scale for the main figure
+col1="#D4EEFC"
+col2="#FAECAF"
+col3="#ECC4B5"
+ymax=0.8
+ymin=-0.05
+
+#main figure, only show 3 selected regime
+##t100_s10(100 selection target, each with sc of 0.1)
+p_t100_s10 <- ggplot(dt_afc_LD_t100_s10, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "100loci_s10(sc=0.1)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col1))+theme(legend.position = "none")
+plot(p_t100_s10)
+
+##t1000_s50(1000 selection target, each with sc of 0.05)
+p_t1000_s50 <- ggplot(dt_afc_LD_t1000_s50, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "1000loci_s50(sc=0.05)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col2))+theme(legend.position = "none")
+plot(p_t1000_s50)
+
+##t5000_s100(5000 selection target, each with sc of 0.02)
+p_t5000_s100 <- ggplot(dt_afc_LD_t5000_s100, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "5000loci_s100(sc=0.02)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col3))+theme(legend.position = "none")
+plot(p_t5000_s100)
+
+merge_p <- ggarrange(p_t100_s10, p_t1000_s50, p_t5000_s100,
+                     nrow=1, ncol=3)
+merge_p <- annotate_figure(merge_p, left = text_grob("LD", rot=90, vjust = 1.5, x=0))
+ggsave("Figures_manuscript/Figure2D_AFC_correlation_LD_simulationA.pdf", plot=merge_p, width = 9, height = 3)
+
+```
+
+###2E AFC correlation with selection under LE
+```{r}
+dt_afc_LE_t100_s10 <- fread("../03slim_simulationA_LE_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_100loci_s10_cor.txt.gz")
+colnames(dt_afc_LE_t100_s10) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LE_t100_s10[, Generation := factor(Generation)]
+
+dt_afc_LE_t1000_s50 <- fread("../03slim_simulationA_LE_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_1000loci_s50_cor.txt.gz")
+colnames(dt_afc_LE_t1000_s50) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LE_t1000_s50[, Generation := factor(Generation)]
+
+dt_afc_LE_t5000_s100 <- fread("../03slim_simulationA_LE_sampling/03afc_cor/results_allSNPs/Run1_popsize1250_n400_5000loci_s100_cor.txt.gz")
+colnames(dt_afc_LE_t5000_s100) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LE_t5000_s100[, Generation := factor(Generation)]
+
+#color and scale for the main figure
+col1="#D4EEFC"
+col2="#FAECAF"
+col3="#ECC4B5"
+ymax=0.8
+ymin=-0.05
+
+#main figure, only show 3 selected regime
+##t100_s10(100 selection target, each with sc of 0.1)
+p_t100_s10 <- ggplot(dt_afc_LE_t100_s10, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "100loci_s10(sc=0.1)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col1))+theme(legend.position = "none")
+plot(p_t100_s10)
+
+##t1000_s50(1000 selection target, each with sc of 0.05)
+p_t1000_s50 <- ggplot(dt_afc_LE_t1000_s50, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "1000loci_s50(sc=0.05)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col2))+theme(legend.position = "none")
+plot(p_t1000_s50)
+
+##t5000_s100(5000 selection target, each with sc of 0.02)
+p_t5000_s100 <- ggplot(dt_afc_LE_t5000_s100, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "5000loci_s100(sc=0.02)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col3))+theme(legend.position = "none")
+plot(p_t5000_s100)
+
+merge_p <- ggarrange(p_t100_s10, p_t1000_s50, p_t5000_s100,
+                     nrow=1, ncol=3)
+merge_p <- annotate_figure(merge_p, left = text_grob("LE", rot=90, vjust = 1.5, x=0))
+ggsave("Figures_manuscript/Figure2E_AFC_correlation_LE_simulationA.pdf", plot=merge_p, width = 9, height = 3)
+
+```
+
+##FigrueS2_simulationA_estimated_Ne
+'estimated Ne among simulations from simulation A_LD'
+'code in plot_simulation.Rmd'
+
+
+##FigureS3_simulationA_LD_PCA
+'PCA results from run1, check results of other runs in the folder simulationA'
+'code in plot_simulation.Rmd'
+
+
+##FigrueS4_simulationA_LD_AFC_correlation
+'allele frequency change correlations calculated from all segregating SNPs under LD'
+'code in plot_simulation.Rmd'
+
+
+##figureS5_simulationA_LD_AFC_Correlation_PC1_loadings
+'allele frequency change correlations calculated from SNPs with pronounced loadings to PC1 under LD'
+'code in plot_simulation.Rmd'
+
+
+
+##FigrueS6_simulationA_LE_AFC_correlation
+'allele frequency change correlations calculated from all segregating SNPs under LE'
+'code in plot_simulation.Rmd'
+
+
+---------------------------------------------------------------------------------
+#Simulation B_shuffle genotype
+##Figure 3.shuffle genotype
+'3A simulation strategy'
+'3B simulation with selection under LD'
+'3C simulation with selection under LE'
+
+###3B AFC correlation with selection under LD
+```{r}
+
+dt_afc_LD_t100_s10 <- fread("../04slim_simulationB_LD_shuffle_genotype/03afc_cor/results_allSNPs/Run1_popsize1250_n400_100loci_s10_cor.txt.gz")
+colnames(dt_afc_LD_t100_s10) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD_t100_s10[, Generation := factor(Generation)]
+
+dt_afc_LD_t1000_s50 <- fread("../04slim_simulationB_LD_shuffle_genotype/03afc_cor/results_allSNPs/Run1_popsize1250_n400_1000loci_s50_cor.txt.gz")
+colnames(dt_afc_LD_t1000_s50) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD_t1000_s50[, Generation := factor(Generation)]
+
+dt_afc_LD_t5000_s100 <- fread("../04slim_simulationB_LD_shuffle_genotype/03afc_cor/results_allSNPs/Run1_popsize1250_n400_5000loci_s100_cor.txt.gz")
+colnames(dt_afc_LD_t5000_s100) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LD_t5000_s100[, Generation := factor(Generation)]
+
+#color and scale for the main figure
+col1="#D4EEFC"
+col2="#FAECAF"
+col3="#ECC4B5"
+ymax=0.8
+ymin=-0.05
+
+#main figure, only show 3 selected regime
+##t100_s10(100 selection target, each with sc of 0.1)
+p_t100_s10 <- ggplot(dt_afc_LD_t100_s10, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "100loci_s10(sc=0.1)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col1))+theme(legend.position = "none")
+plot(p_t100_s10)
+
+##t1000_s50(1000 selection target, each with sc of 0.05)
+p_t1000_s50 <- ggplot(dt_afc_LD_t1000_s50, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "1000loci_s50(sc=0.05)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col2))+theme(legend.position = "none")
+plot(p_t1000_s50)
+
+##t5000_s100(5000 selection target, each with sc of 0.02)
+p_t5000_s100 <- ggplot(dt_afc_LD_t5000_s100, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "5000loci_s100(sc=0.02)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col3))+theme(legend.position = "none")
+plot(p_t5000_s100)
+
+merge_p <- ggarrange(p_t100_s10, p_t1000_s50, p_t5000_s100,
+                     nrow=1, ncol=3)
+merge_p <- annotate_figure(merge_p, left = text_grob("LD", rot=90, vjust = 1.5, x=0))
+ggsave("Figures_manuscript/Figure3B_simulationB_AFC_correlation_LD.pdf", plot=merge_p, width = 9, height = 3)
+
+```
+
+
+###3C AFC correlation with selection under LE
+```{r}
+dt_afc_LE_t100_s10 <- fread("../05slim_simulationB_LE_shuffle_genotype/03afc_cor/results_allSNPs/Run1_popsize1250_n400_100loci_s10_cor.txt.gz")
+colnames(dt_afc_LE_t100_s10) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LE_t100_s10[, Generation := factor(Generation)]
+
+dt_afc_LE_t1000_s50 <- fread("../05slim_simulationB_LE_shuffle_genotype/03afc_cor/results_allSNPs/Run1_popsize1250_n400_1000loci_s50_cor.txt.gz")
+colnames(dt_afc_LE_t1000_s50) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LE_t1000_s50[, Generation := factor(Generation)]
+
+dt_afc_LE_t5000_s100 <- fread("../05slim_simulationB_LE_shuffle_genotype/03afc_cor/results_allSNPs/Run1_popsize1250_n400_5000loci_s100_cor.txt.gz")
+colnames(dt_afc_LE_t5000_s100) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_LE_t5000_s100[, Generation := factor(Generation)]
+
+#color and scale for the main figure
+col1="#D4EEFC"
+col2="#FAECAF"
+col3="#ECC4B5"
+ymax=0.8
+ymin=-0.05
+
+#main figure, only show 3 selected regime
+##t100_s10(100 selection target, each with sc of 0.1)
+p_t100_s10 <- ggplot(dt_afc_LE_t100_s10, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "100loci_s10(sc=0.1)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col1))+theme(legend.position = "none")
+plot(p_t100_s10)
+
+##t1000_s50(1000 selection target, each with sc of 0.05)
+p_t1000_s50 <- ggplot(dt_afc_LE_t1000_s50, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "1000loci_s50(sc0.05)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col2))+theme(legend.position = "none")
+plot(p_t1000_s50)
+
+##t5000_s100(5000 selection target, each with sc of 0.02)
+p_t5000_s100 <- ggplot(dt_afc_LE_t5000_s100, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+labs(title = "5000loci_s100(sc=0.02)") + ylim(ymin, ymax)+
+  theme(panel.background = element_rect(fill=col3))+theme(legend.position = "none")
+plot(p_t5000_s100)
+
+merge_p <- ggarrange(p_t100_s10, p_t1000_s50, p_t5000_s100,
+                     nrow=1, ncol=3)
+merge_p <- annotate_figure(merge_p, left = text_grob("LE", rot=90, vjust = 1.5, x=0))
+ggsave("Figures_manuscript/Figure3C_simulationB_AFC_correlation_LE.pdf", plot=merge_p, width = 9, height = 3)
+
+
+```
+
+
+
+##FigrueS7_simulationB_LD_AFC_correlation
+'shuffle genotype'
+'code in plot_simulation.Rmd'
+
+
+
+##FigrueS8_simulationB_LE_AFC_correlation
+'shuffle genotype'
+'code in plot_simulation.Rmd'
+
+
+
+---------------------------------------------------------------------------------
+#Simulation C_sample size
+##Figure4. the influence of sample size
+'4A simulation strategy'
+'4B AFC correlation under LD' 
+###4B AFC correlation with different sample size(LD)
+```{r}
+dt_afc_n400 <- fread("../06slim_simulationC_LD_samplesize/03afc_cor/results_allSNPs/Run1_popsize1250_n400_100loci_s10_cor.txt.gz")
+colnames(dt_afc_n400) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_n400[, Generation := factor(Generation)]
+
+dt_afc_n800 <- fread("../06slim_simulationC_LD_samplesize/03afc_cor/results_allSNPs/Run1_popsize1250_n800_100loci_s10_cor.txt.gz")
+colnames(dt_afc_n800) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_n800[, Generation := factor(Generation)]
+
+dt_afc_n1200 <- fread("../06slim_simulationC_LD_samplesize/03afc_cor/results_allSNPs/Run1_popsize1250_n1200_100loci_s10_cor.txt.gz")
+colnames(dt_afc_n1200) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_n1200[, Generation := factor(Generation)]
+
+dt_afc_n2500 <- fread("../06slim_simulationC_LD_samplesize/03afc_cor/results_allSNPs/Run1_popsize1250_n2500_100loci_s10_cor.txt.gz")
+colnames(dt_afc_n2500) <- c("Generation","Sample1","Sample2","Correlation", "group_pair", "Comparison")
+dt_afc_n2500[, Generation := factor(Generation)]
+
+#initialize parameters
+c4="#CAE2DF"
+c8="#CED1E7"
+c12="#E1D6E9"
+c25="#BAD4E7"
+ymax=0.4
+ymin=-0.05
+
+
+#n400
+p1<-ggplot(dt_afc_n400, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+
+  labs(title="n400")+ylim(ymin,ymax)+
+  theme(panel.background = element_rect(fill=c4))+theme(legend.position = "none")
+#n800
+p2<-ggplot(dt_afc_n800, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+
+  labs(title="n800")+ylim(ymin,ymax)+
+  theme(panel.background = element_rect(fill=c8))+theme(legend.position = "none")
+#n1200
+p3<-ggplot(dt_afc_n1200, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+
+  labs(title="n1200")+ylim(ymin,ymax)+
+  theme(panel.background = element_rect(fill=c12))+theme(legend.position = "none")
+#n2500
+p4<-ggplot(dt_afc_n2500, aes(x=Generation, y=Correlation, fill=Comparison))+
+  geom_boxplot()+
+  labs(title="n2500")+ylim(ymin,ymax)+
+  theme(panel.background = element_rect(fill=c25))+theme(legend.position = "none")
+
+merge_p=ggarrange(p1,p2,p3,p4,
+          nrow = 1, ncol = 4)
+merge_p <- annotate_figure(merge_p, left = text_grob("LD", rot=90, vjust = 1.5, x=0))
+plot(merge_p)
+ggsave("Figures_manuscript/Figure4B_AFC_correlation_samplesize.pdf", plot=merge_p, width = 12, height = 3)
+
+
+
+```
+
+
+
+
+
+
+###FigrueS9_simulationC_LD_AFC_correlation
+'sample size'
+'code in plot_simulation.Rmd'
+
+
+
+
+
+---------------------------------------------------------------------------------
