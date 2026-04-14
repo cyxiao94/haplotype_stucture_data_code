@@ -1,4 +1,4 @@
-Ne_auto	NE_x	group	rep1	rep2	treatment
+Ne_auto	Ne_x	group	rep1	rep2	treatment
 257	310	SupergroupI	r1	r1	2818
 323	247	SupergroupI	r2	r2	2818
 375	338	SupergroupI	r3	r3	2818

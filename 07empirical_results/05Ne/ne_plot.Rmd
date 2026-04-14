@@ -1,0 +1,60 @@
+---
+title: "plot_ne"
+author: "Changyi"
+date: "2026-04-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(ggpubr)
+library(ggsignif)
+```
+
+```{r}
+ne_23 <- fread("23.ne")
+ne_2818 <- fread("2818.ne")
+median(ne_2818$Ne_auto)
+ne<-rbind(ne_23, ne_2818)
+invisible(ne[, treatment := factor(treatment)])
+```
+
+
+```{r}
+p_auto<-ggplot(ne, aes(x=treatment,y=Ne_auto))+
+  geom_boxplot()+
+  geom_signif(comparisons = list(c("23","2818")))+
+  labs(title="autosome")
+p_x<-ggplot(ne, aes(x=treatment,y=Ne_x))+
+  geom_boxplot()+
+  geom_signif(comparisons = list(c("23","2818")))+
+  labs(title="X chromosome")
+
+ggarrange(p_auto, p_x)
+
+```
+
+```{r}
+p_auto<-ggplot(ne, aes(x=group,y=Ne_auto))+
+  geom_boxplot()+
+  facet_wrap(~treatment)+
+  geom_signif(comparisons = list(c("SupergroupI","SupergroupII"),
+                                 c("SupergroupI","SupergroupIII"),
+                                 c("SupergroupII","SupergroupIII")))+
+  labs(title="autosome")
+p_x<-ggplot(ne, aes(x=group,y=Ne_x))+
+  geom_boxplot()+
+  facet_wrap(~treatment)+
+  geom_signif(comparisons = list(c("SupergroupI","SupergroupII"),
+                                 c("SupergroupI","SupergroupIII"),
+                                 c("SupergroupII","SupergroupIII")))+
+  labs(title="X chromosome")
+
+ggarrange(p_auto, p_x, nrow = 2)
+
+```

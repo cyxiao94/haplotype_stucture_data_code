@@ -116,7 +116,7 @@ rm(df_af);rm(df_cov);rm(ne);rm(i);rm(ind);rm(j);rm(nb_obs);rm(NB_trials);rm(Ne_r
 
 #write file
 ne_data<-data.frame(Ne_auto=med_Ne_auto,
-                    NE_x=med_Ne_x,
+                    Ne_x=med_Ne_x,
                     group=rep(c("SupergroupI","SupergroupII","SupergroupIII"), each=5),
                     rep1=paste("r",rep(1:5,3),sep=""),
                     rep2=paste("r",1:15,sep=""),
