@@ -1,16 +1,16 @@
-Ne	group	rep1	rep2	treatment
-203	SupergroupI	r1	r1	23
-194	SupergroupI	r2	r2	23
-259	SupergroupI	r3	r3	23
-221	SupergroupI	r4	r4	23
-209	SupergroupI	r5	r5	23
-202	SupergroupII	r1	r6	23
-249	SupergroupII	r2	r7	23
-255	SupergroupII	r3	r8	23
-215	SupergroupII	r4	r9	23
-249	SupergroupII	r5	r10	23
-286	SupergroupIII	r1	r11	23
-208	SupergroupIII	r2	r12	23
-213	SupergroupIII	r3	r13	23
-205	SupergroupIII	r4	r14	23
-283	SupergroupIII	r5	r15	23
+Ne_auto	Ne_x	group	rep1	rep2	treatment
+208	158	SupergroupI	r1	r1	23
+190	199	SupergroupI	r2	r2	23
+251	272	SupergroupI	r3	r3	23
+216	267	SupergroupI	r4	r4	23
+215	172	SupergroupI	r5	r5	23
+212	209	SupergroupII	r1	r6	23
+249	276	SupergroupII	r2	r7	23
+265	256	SupergroupII	r3	r8	23
+227	182	SupergroupII	r4	r9	23
+249	266	SupergroupII	r5	r10	23
+286	261	SupergroupIII	r1	r11	23
+208	199	SupergroupIII	r2	r12	23
+210	187	SupergroupIII	r3	r13	23
+201	212	SupergroupIII	r4	r14	23
+289	242	SupergroupIII	r5	r15	23

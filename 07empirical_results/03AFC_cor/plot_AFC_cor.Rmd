@@ -1,0 +1,154 @@
+---
+title: "plot_AFC_cor"
+author: "Changyi"
+date: "2026-04-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(corrplot)
+
+```
+
+#1. 2818
+##1.1 heatmap(F80)
+```{r}
+cor_afc <- fread('./2818_AFC_cor.txt.gz', header = TRUE)
+#retain F80 for visualisation
+cor_afc <- cor_afc[gen==80,]
+#simplify names
+cor_afc[, rep1 := {
+  parts <- tstrsplit(sample1, "_")
+  rep <- sub("r","",parts[[5]])
+  paste0("fluctuating",rep)
+}]
+cor_afc[, rep2 := {
+  parts <- tstrsplit(sample2, "_")
+  rep <- sub("r","",parts[[5]])
+  
+  paste0("fluctuating",rep)
+}]
+
+samples <- paste0("fluctuating",1:15)
+#transform into a matrix
+afc_cor_mat <- matrix(NA, nrow = length(samples), ncol = length(samples), dimnames = list(samples, samples))
+#fill data
+afc_cor_mat[cbind(cor_afc$rep1,cor_afc$rep2)] <- cor_afc$r    
+afc_cor_mat[cbind(cor_afc$rep2,cor_afc$rep1)] <- cor_afc$r    
+
+
+cor_col=colorRampPalette(c("#86C082", "#FBE992", "#F7D28A", "#F2BA83", "#EDA37D", "#EB8C77", "#E87671"))
+
+group <- rep(c("Supergroup I", "Supergroup II","Supergroup III"), each = ncol(afc_cor_mat)/3)
+n <- ncol(afc_cor_mat)
+y_offset <- n + 0.7  # Position above the plot
+
+#visualisation
+pdf("plot_2818_F80_AFC_correlation.pdf", width = 8, height = 8)
+corrplot(afc_cor_mat, is.corr = FALSE,diag = FALSE, method = 'color',  col = cor_col(120), mar = c(1,2,1,1), tl.col = 'darkred') 
+corrplot(afc_cor_mat, add = TRUE, is.corr = FALSE, diag = FALSE, method = 'number',  col = 'black', bg=NULL, cl.pos = 'n', number.cex = 0.7, number.digits = 3, tl.pos = 'n') |> corrRect(c(1,6,11,15))
+text(x = c(3,8,13),y = 15+3.7,xpd = TRUE, font = 2,
+     labels = c("Supergroup I", "Supergroup II", "Supergroup III")) #group information in columns
+text(x = 0 - 2.8, y = c(3,8,13), xpd = TRUE, font = 2, srt=90,
+     labels = c("Supergroup III", "Supergroup II", "Supergroup I")) #group information in rows
+
+rect(-3.2, 10.5, 0.5, 15.5, xpd=TRUE) #rect for Supergroup I in rows
+rect(-3.2, 5.5, 0.5, 10.5, xpd=TRUE) #rect for Supergroup II in rows
+rect(-3.2, 0.5, 0.5, 5.5, xpd=TRUE) #rect for Supergroup III in rows
+rect(0.5, 15.5, 5.5, 19.0, xpd=TRUE) #rect for Supergroup I in columns
+rect(5.5, 15.5, 10.5, 19.0, xpd=TRUE) #rect for Supergroup II in columns
+rect(10.5, 15.5, 15.5, 19.0, xpd=TRUE) #rect for Supergroup III in columns
+dev.off()
+
+rm(afc_cor_mat, cor_afc, group, n, samples, y_offset)
+```
+
+##1.2 boxplot time series
+```{r}
+cor_afc <- fread('./2818_AFC_cor.txt.gz', header = TRUE)
+invisible(cor_afc[, gen := factor(gen)])
+
+p_box<-ggplot(cor_afc, aes(x=gen, y=r, fill = comparison))+
+  geom_boxplot()+
+  labs(title="Fluctuating", x="Generation",y="Correlation")+
+  theme_bw()+
+  theme(legend.position = "none")
+  
+plot(p_box)
+ggsave("plot_2818_boxplot_timeseries_AFC_correlation.pdf", plot = p_box, width = 3, height = 3)
+```
+
+#2. 23
+##2.1 heatmap(F80)
+```{r}
+cor_afc <- fread('./23_AFC_cor.txt.gz', header = TRUE)
+#retain F80 for visualisation
+cor_afc <- cor_afc[gen==80,]
+#simplify names
+cor_afc[, rep1 := {
+  parts <- tstrsplit(sample1, "_")
+  rep <- sub("r","",parts[[5]])
+  paste0("constant",rep)
+}]
+cor_afc[, rep2 := {
+  parts <- tstrsplit(sample2, "_")
+  rep <- sub("r","",parts[[5]])
+  
+  paste0("constant",rep)
+}]
+
+samples <- paste0("constant",1:15)
+#transform into a matrix
+afc_cor_mat <- matrix(NA, nrow = length(samples), ncol = length(samples), dimnames = list(samples, samples))
+#fill data
+afc_cor_mat[cbind(cor_afc$rep1,cor_afc$rep2)] <- cor_afc$r    
+afc_cor_mat[cbind(cor_afc$rep2,cor_afc$rep1)] <- cor_afc$r    
+
+
+cor_col=colorRampPalette(c("#86C082", "#FBE992", "#F7D28A", "#F2BA83", "#EDA37D", "#EB8C77", "#E87671"))
+
+group <- rep(c("Supergroup I", "Supergroup II","Supergroup III"), each = ncol(afc_cor_mat)/3)
+n <- ncol(afc_cor_mat)
+y_offset <- n + 0.7  # Position above the plot
+
+#visualisation
+pdf("plot_23_F80_AFC_correlation.pdf", width = 8, height = 8)
+corrplot(afc_cor_mat, is.corr = FALSE,diag = FALSE, method = 'color',  col = cor_col(120), mar = c(1,2,1,1), tl.col = 'darkred') 
+corrplot(afc_cor_mat, add = TRUE, is.corr = FALSE, diag = FALSE, method = 'number',  col = 'black', bg=NULL, cl.pos = 'n', number.cex = 0.7, number.digits = 3, tl.pos = 'n') |> corrRect(c(1,6,11,15))
+text(x = c(3,8,13),y = 15+3.7,xpd = TRUE, font = 2,
+     labels = c("Supergroup I", "Supergroup II", "Supergroup III")) #group information in columns
+text(x = 0 - 2.8, y = c(3,8,13), xpd = TRUE, font = 2, srt=90,
+     labels = c("Supergroup III", "Supergroup II", "Supergroup I")) #group information in rows
+
+rect(-3.2, 10.5, 0.5, 15.5, xpd=TRUE) #rect for Supergroup I in rows
+rect(-3.2, 5.5, 0.5, 10.5, xpd=TRUE) #rect for Supergroup II in rows
+rect(-3.2, 0.5, 0.5, 5.5, xpd=TRUE) #rect for Supergroup III in rows
+rect(0.5, 15.5, 5.5, 19.0, xpd=TRUE) #rect for Supergroup I in columns
+rect(5.5, 15.5, 10.5, 19.0, xpd=TRUE) #rect for Supergroup II in columns
+rect(10.5, 15.5, 15.5, 19.0, xpd=TRUE) #rect for Supergroup III in columns
+dev.off()
+
+
+```
+
+
+#2.2 time series
+##1.2 boxplot time series
+```{r}
+cor_afc <- fread('./23_AFC_cor.txt.gz', header = TRUE)
+invisible(cor_afc[, gen := factor(gen)])
+
+p_box<-ggplot(cor_afc, aes(x=gen, y=r, fill = comparison))+
+  geom_boxplot()+
+  labs(title="Constant", x="Generation",y="Correlation")+
+  theme_bw()
+  #theme(legend.position = "none")
+plot(p_box)
+ggsave("plot_23_boxplot_timeseries_AFC_correlation.pdf", plot = p_box)
+```

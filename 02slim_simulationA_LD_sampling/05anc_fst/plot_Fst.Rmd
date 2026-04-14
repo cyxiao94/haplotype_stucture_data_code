@@ -1,0 +1,149 @@
+---
+title: "plot_fst"
+author: "Changyi"
+date: "2026-04-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+library(ggplot2)
+library(data.table)
+library(ggsignif)
+library(ggpubr)
+```
+
+
+###empirical data
+```{r}
+dt <- fread("../../07empirical_results/04fst/anc_F0.sync.fst.gz")
+dt_general <- dt[, 1:5]
+colnames(dt_general) <- c("chr", "window_pos", "num_snp", "frac_snp", "average_cov")
+temp_dt_fst <- dt[, 6:110]
+new_dt_fst <- temp_dt_fst[, lapply(.SD, function(x)
+  tstrsplit(x, "=", type.convert = TRUE)[[2]])]
+setnames(new_dt_fst, sapply(temp_dt_fst[1], function(x)
+  tstrsplit(x, "=")[[1]]))
+
+dt_fst <- cbind(dt_general, new_dt_fst)
+
+#average across the genome
+col_mean_fst <- dt_fst[, lapply(.SD, mean, na.rm = TRUE), .SDcols = 6:110]
+col_median_fst <- dt_fst[, lapply(.SD, median, na.rm = TRUE), .SDcols = 6:110]
+emp_fst <- data.table(
+  mean_fst = as.numeric(col_mean_fst),
+  median_fst = as.numeric(col_median_fst),
+  pair = names(col_mean_fst)
+)
+emp_fst[, c("groupA", "groupB") := tstrsplit(pair, ":", fixed = TRUE)]
+
+get_group <- function(id) {
+  id <- as.integer(id)
+  if (id >= 1 && id <= 5) return("A")
+  if (id >= 6 && id <= 10) return("B")
+  if (id >= 11 && id <= 15) return("C")
+  else return(NA_character_)
+}
+
+emp_fst[, group := mapply(function(r1, r2) {
+  g1 <- get_group(r1)
+  g2 <- get_group(r2)
+  if (g1 == g2) g1 else paste0(sort(c(g1, g2)), collapse = "")
+}, groupA, groupB)]
+
+emp_fst[, comparison := ifelse(nchar(group) == 1, "within", "between")]
+emp_fst[, ]
+fwrite(emp_fst, file = "00Empirical_fst.txt.gz", sep="\t", quote = FALSE)
+rm(col_mean_fst, col_median_fst,dt,dt_fst,dt_general,new_dt_fst,temp_dt_fst)
+```
+
+
+```{r}
+cal_ave_fst <- function(run,loci){
+  fst_file <- paste0("run",run,"_n400_",loci,"loci_s10.sync.fst.gz")
+  dt <- fread(fst_file)
+  dt_general <- dt[, 1:5]
+  colnames(dt_general) <- c("chr", "window_pos", "num_snp", "frac_snp", "average_cov")
+  temp_dt_fst <- dt[, 6:8]
+  new_dt_fst <- temp_dt_fst[, lapply(.SD, function(x)
+    tstrsplit(x, "=", type.convert = TRUE)[[2]])]
+
+  setnames(new_dt_fst, sapply(temp_dt_fst[1], function(x)
+    tstrsplit(x, "=")[[1]]))
+
+
+  dt_fst <- cbind(dt_general, new_dt_fst)
+
+  #average across the genome
+  col_mean_fst <- dt_fst[, lapply(.SD, mean, na.rm = TRUE), .SDcols = 6:8]
+  col_median_fst <- dt_fst[, lapply(.SD, median, na.rm = TRUE), .SDcols = 6:8]
+  dt_ave_fst <- data.table(
+    mean_fst = as.numeric(col_mean_fst),
+    median_fst = as.numeric(col_median_fst),
+    pair = names(col_mean_fst)
+  )
+  dt_ave_fst[, c("groupA", "groupB") := tstrsplit(pair, ":", fixed = TRUE)]
+  dt_ave_fst[, run := run]
+  dt_ave_fst[, num_target := loci]
+  return(dt_ave_fst)
+  
+}
+
+fst_simulation<-NULL
+for (run in 1:10){
+  for (num_target in c(10,100, 1000, 5000, 10000, 20000)){
+    temp_fst<-cal_ave_fst(run, num_target)
+    fst_simulation<-rbind(fst_simulation, temp_fst)
+  }
+}
+fst_simulation[ , num_target := factor(num_target)]
+fwrite(fst_simulation, file = "00fst_simulation.txt.gz", sep="\t", quote = FALSE)
+```
+
+
+```{r}
+
+
+#empirical data
+p_emp <- ggplot(emp_fst[comparison=="between",], aes(x = comparison, y = mean_fst)) +
+  geom_boxplot() +
+  geom_signif( comparisons = list(c("between", "within")), test = "wilcox.test", map_signif_level = TRUE) +
+  #annotate("text", x = 0.5, y = 0.0027, label = "Wilcox test\nP-value=0.0002046", color = "black", size = 4, hjust=0) +
+  ylim(0, 0.006)+
+  labs(x = "Comparison", y = "Mean Fst", title = "Empirical") +
+  theme_bw() 
+  #theme(panel.grid = element_blank(), legend.position = c(0.95, 0.85))
+
+#simulation
+p_simu <- ggplot(fst_simulation, aes(x=num_target , y = mean_fst)) +
+  geom_boxplot()+
+  ylim(0,0.006)+
+  labs(x = "Number target", y = "", title = "Simulation") +
+  theme_bw()
+
+p_merge <- ggarrange(p_emp, p_simu,widths = c(1,2))
+p_merge<-annotate_figure(p_merge,
+                         top = text_grob("Ancestral Fst between supergroups", face = "bold", size=14))
+plot(p_merge)
+ggsave("Anc_Fst.pdf", plot = p_merge, width = 7, height = 7)
+#ggsave("Figures_manuscript/FigureS1B_Fst.pdf", plot = p_fst, width = 5, height = 5)
+
+
+#wilcox.test(dt_ave_fst_empirical[comparison=="between", mean_fst],
+#            dt_ave_fst_empirical[comparison=="within", mean_fst])
+#p-value=0.0002046
+
+#wilcox.test(dt_ave_fst[comparison=="between", median_fst],
+#            dt_ave_fst[comparison=="within", median_fst])
+#p-value=0.000385
+```
